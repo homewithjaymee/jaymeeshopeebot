@@ -3,6 +3,7 @@ import re
 import hmac
 import hashlib
 import time
+import json
 import requests
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
@@ -12,42 +13,42 @@ TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "8698397652:AAEJqZhsV2fcK4V6Uy
 SHOPEE_APP_ID   = os.environ.get("SHOPEE_APP_ID", "14364560001")
 SHOPEE_SECRET   = os.environ.get("SHOPEE_SECRET", "FF65DB2VWMFD4NTTLQU43QMYRJWID5AI")
 
+SHOPEE_API_URL = "https://open-api.affiliate.shopee.sg/graphql"
+
 # ── SHOPEE AFFILIATE API ──────────────────────────────────────────────────────
-def generate_shopee_affiliate_link(original_url: str) -> str | None:
-    """Convert any Shopee product URL to Jaymee's affiliate link."""
-    endpoint = "https://open-api.affiliate.shopee.sg/graphql"
+def generate_shopee_affiliate_link(original_url: str):
+    query = """mutation generateShortLink($input: GenerateShortLinkInput!) {
+  generateShortLink(input: $input) {
+    shortLink
+    originLink
+  }
+}"""
+    variables = {
+        "input": {
+            "originUrl": original_url,
+            "subIds": ["hwj"]
+        }
+    }
+
+    # Build payload string (must be compact JSON, no extra spaces)
+    payload_dict = {"query": query, "variables": variables}
+    payload_str = json.dumps(payload_dict, separators=(',', ':'))
+
     timestamp = int(time.time())
-    payload = f"{SHOPEE_APP_ID}{timestamp}"
-    signature = hmac.new(
-        SHOPEE_SECRET.encode("utf-8"),
-        payload.encode("utf-8"),
-        hashlib.sha256
-    ).hexdigest()
+
+    # Signature = SHA256(AppId + Timestamp + Payload + Secret)
+    factor = SHOPEE_APP_ID + str(timestamp) + payload_str + SHOPEE_SECRET
+    signature = hashlib.sha256(factor.encode("utf-8")).hexdigest()
 
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"SHA256 Credential={SHOPEE_APP_ID}, Timestamp={timestamp}, Signature={signature}"
     }
 
-    body = {
-        "query": """
-        mutation generateShortLink($input: GenerateShortLinkInput!) {
-            generateShortLink(input: $input) {
-                shortLink
-                originLink
-            }
-        }
-        """,
-        "variables": {
-            "input": {
-                "originUrl": original_url,
-                "subIds": ["hwj"]
-            }
-        }
-    }
-
     try:
-        response = requests.post(endpoint, json=body, headers=headers, timeout=10)
+        response = requests.post(SHOPEE_API_URL, data=payload_str, headers=headers, timeout=10)
+        print(f"Status: {response.status_code}")
+        print(f"Response: {response.text[:500]}")
         data = response.json()
         short_link = data.get("data", {}).get("generateShortLink", {}).get("shortLink")
         return short_link
@@ -56,8 +57,7 @@ def generate_shopee_affiliate_link(original_url: str) -> str | None:
         return None
 
 
-def extract_shopee_url(text: str) -> str | None:
-    """Extract a Shopee URL from a message."""
+def extract_shopee_url(text: str):
     pattern = r'https?://(?:www\.)?(?:shopee\.sg|s\.shopee\.sg|shp\.ee)/[^\s]+'
     match = re.search(pattern, text)
     return match.group(0) if match else None
