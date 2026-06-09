@@ -15,12 +15,20 @@ SHOPEE_API_URL = "https://open-api.affiliate.shopee.sg/graphql"
 
 # ── SHOPEE AFFILIATE API ──────────────────────────────────────────────────────
 def generate_shopee_affiliate_link(original_url: str):
-    # Inline query format exactly as per Shopee SG API docs
-    escaped_url = original_url.replace('"', '\\"')
-    query = 'mutation{\\n  generateShortLink(input:{originUrl:\\"' + escaped_url + '\\",subIds:[\\"hwj\\"]})\\n  {\\n    shortLink\\n  }\\n}'
-    
-    payload_dict = {"query": query}
-    payload_str = json.dumps(payload_dict, separators=(',', ':'))
+    # Build the query string exactly — no variable escaping tricks
+    query = (
+        'mutation{\n'
+        '  generateShortLink(input:{'
+        'originUrl:"' + original_url + '",'
+        'subIds:["hwj"]'
+        '}){\n'
+        '    shortLink\n'
+        '  }\n'
+        '}'
+    )
+
+    # Payload must be compact JSON
+    payload_str = json.dumps({"query": query}, separators=(',', ':'))
 
     timestamp = int(time.time())
 
