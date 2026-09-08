@@ -43,7 +43,9 @@ def generate_shopee_affiliate_link(original_url: str):
 
 
 def extract_shopee_urls(text: str):
-    pattern = r'https?://(?:www\.)?(?:shopee\.sg|s\.shopee\.sg|shp\.ee)/[^\s]+'
+    # Accepts any subdomain chain in front of shopee.sg or shp.ee
+    # e.g. shopee.sg, s.shopee.sg, www.shopee.sg, shp.ee, sg.shp.ee
+    pattern = r'https?://(?:[\w-]+\.)*(?:shopee\.sg|shp\.ee)/[^\s]+'
     return re.findall(pattern, text)
 
 
