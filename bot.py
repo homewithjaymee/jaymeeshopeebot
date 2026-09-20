@@ -95,10 +95,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "make sure they're valid shopee.sg links and try again!"
         )
 
-
+async def clear_webhook(app):
+    await app.bot.delete_webhook(drop_pending_updates=False)
 # ── MAIN ─────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+    app = ApplicationBuilder().token(TELEGRAM_TOKEN).post_init(clear_webhook).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     print("ling is on duty 🐱")
